@@ -112,19 +112,19 @@ class Payment {
   ///
   _initPayment() async {
 //https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
-    if (Platform.isIOS) {
-      final transactions = await SKPaymentQueueWrapper().transactions();
-      for (final transaction in transactions) {
-        try {
-          if (transaction.transactionState !=
-              SKPaymentTransactionStateWrapper.purchasing) {
-            await SKPaymentQueueWrapper().finishTransaction(transaction);
-          }
-        } catch (e) {
-          print(e);
-        }
-      }
-    }
+    // if (Platform.isIOS) {
+    //   final transactions = await SKPaymentQueueWrapper().transactions();
+    //   for (final transaction in transactions) {
+    //     try {
+    //       if (transaction.transactionState !=
+    //           SKPaymentTransactionStateWrapper.purchasing) {
+    //         await SKPaymentQueueWrapper().finishTransaction(transaction);
+    //       }
+    //     } catch (e) {
+    //       print(e);
+    //     }
+    //   }
+    // }
 
     final bool available = await InAppPurchaseConnection.instance.isAvailable();
     

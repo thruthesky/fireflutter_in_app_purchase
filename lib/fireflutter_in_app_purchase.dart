@@ -2,6 +2,7 @@ library fireflutter_in_app_purchase;
 
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -20,12 +21,12 @@ class Payment {
   // RxList products = [].obs;
 
   List products = [];
+  Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
 
-  final Set<String> _productIds = {'product1', 'product2', 'lucky_box'};
-
-  init() async {
+  init({@required Set<String> productIds}) async {
     print('Payment::init');
+    this.productIds = productIds;
     _initIncomingPurchaseStream();
     _initPayment();
     await pastPurchases();
@@ -86,7 +87,7 @@ class Payment {
 
       final ProductDetailsResponse response = await InAppPurchaseConnection
           .instance
-          .queryProductDetails(_productIds);
+          .queryProductDetails(productIds);
       if (response.notFoundIDs.isNotEmpty) {
         // Handle the error.
         print("Product IDs that are not found from store.");

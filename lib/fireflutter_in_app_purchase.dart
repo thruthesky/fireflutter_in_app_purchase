@@ -3,6 +3,7 @@ library fireflutter_in_app_purchase;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/store_kit_wrappers.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -24,6 +25,8 @@ class Payment {
   Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
 
+  InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
+
   init({@required Set<String> productIds}) async {
     print('Payment::init');
     this.productIds = productIds;
@@ -36,6 +39,7 @@ class Payment {
   /// propagate from either storefront so it's important to listen as soon as
   /// possible to avoid losing events.
   _initIncomingPurchaseStream() {
+    
     final Stream purchaseUpdates =
         InAppPurchaseConnection.instance.purchaseUpdatedStream;
 
@@ -81,7 +85,23 @@ class Payment {
   /// - Check if the product ids are available
   ///
   _initPayment() async {
+//https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
+    if (Platform.isIOS) {
+      final transactions = await SKPaymentQueueWrapper().transactions();
+      for (final transaction in transactions) {
+        try {
+          if (transaction.transactionState !=
+              SKPaymentTransactionStateWrapper.purchasing) {
+            await SKPaymentQueueWrapper().finishTransaction(transaction);
+          }
+        } catch (e) {
+          print(e);
+        }
+      }
+    }
+
     final bool available = await InAppPurchaseConnection.instance.isAvailable();
+    
     if (available) {
       // print('In app purchase is ready');
 

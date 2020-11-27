@@ -24,12 +24,12 @@ class Payment {
   Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
 
-  init({@required Set<String> productIds}) async {
+  init({@required Set<String> productIds}) {
     print('Payment::init');
     this.productIds = productIds;
     _initIncomingPurchaseStream();
     _initPayment();
-    await pastPurchases();
+    _pastPurchases();
   }
 
   /// Subscribe to any incoming purchases at app initialization. These can
@@ -39,39 +39,65 @@ class Payment {
     final Stream purchaseUpdates =
         InAppPurchaseConnection.instance.purchaseUpdatedStream;
 
-    /// Listen to any incoming purchases.
+    /// Listen to any incoming purchases AND any pending purchase from previous app session.
+    /// * For instance, app crashed right after purchase and the purchase has not yet delivered,
+    /// * Then, the purchase will be notified here with `PurchaseStatus.pending`. This is confirmed on iOS.
     /// No need to unscribe since it is lifetime listener
+    ///
+    /// ! This is being called only on app start after closing. Hot-Reload or Full-Reload is not working.
     purchaseUpdates.listen((dynamic purchaseDetailsList) {
-      purchaseDetailsList.forEach((PurchaseDetails purchaseDetails) async {
-        if (purchaseDetails.status == PurchaseStatus.pending) {
-          // showPendingUI();
-          print('PurchaseStatus.pending: Show some pending UI');
-        } else {
-          if (purchaseDetails.status == PurchaseStatus.error) {
-            // handleError(purchaseDetails.error);
-            print("purchaseDetails.error: ${purchaseDetails.error}");
-            // Service.error(purchaseDetails.error);
-          } else if (purchaseDetails.status == PurchaseStatus.purchased) {
-            bool valid = await _verifyPurchase(purchaseDetails);
-            if (valid) {
-              deliverProduct(purchaseDetails);
-            } else {
-              _handleInvalidPurchase(purchaseDetails);
-              return;
+      print('purchaseUpdates.listen((dynamic purchaseDetailsList) =>');
+      purchaseDetailsList.forEach(
+        (PurchaseDetails purchaseDetails) async {
+          if (purchaseDetails.status == PurchaseStatus.pending) {
+            /// Pending purchase from previous app session and new incoming pending purchase will come here.
+            // showPendingUI();
+            print('PurchaseStatus.pending: Show some pending UI');
+            print(purchaseDetails);
+            print(purchaseDetails.productID);
+            // try {
+            //   final re = await InAppPurchaseConnection.instance
+            //       .completePurchase(purchaseDetails);
+            //   print('purchase completed:');
+            //   print(re);
+            // } catch (e) {
+            //   print('Error on purchase: ');
+            //   print(e);
+            // }
+          } else {
+            if (purchaseDetails.status == PurchaseStatus.error) {
+              // handleError(purchaseDetails.error);
+              print("purchaseDetails.error: ${purchaseDetails.error}");
+              // Service.error(purchaseDetails.error);
+            } else if (purchaseDetails.status == PurchaseStatus.purchased) {
+              print('if (purchaseDetails.status == PurchaseStatus.purchased)');
+              bool valid = await _verifyPurchase(purchaseDetails);
+              if (valid) {
+                deliverProduct(purchaseDetails);
+              } else {
+                _handleInvalidPurchase(purchaseDetails);
+                return;
+              }
             }
-          }
-          if (Platform.isAndroid) {
-            if (!_kAutoConsume && purchaseDetails.productID == _kConsumableId) {
+            if (Platform.isAndroid) {
+              if (!_kAutoConsume &&
+                  purchaseDetails.productID == _kConsumableId) {
+                await InAppPurchaseConnection.instance
+                    .consumePurchase(purchaseDetails);
+              }
+            }
+            if (purchaseDetails.pendingCompletePurchase) {
               await InAppPurchaseConnection.instance
-                  .consumePurchase(purchaseDetails);
+                  .completePurchase(purchaseDetails);
             }
           }
-          if (purchaseDetails.pendingCompletePurchase) {
-            await InAppPurchaseConnection.instance
-                .completePurchase(purchaseDetails);
-          }
-        }
-      });
+        },
+      );
+    }, onDone: () {
+      print('done:');
+    }, onError: (error) {
+      print('error on listening:');
+      print(error);
     });
   }
 
@@ -131,7 +157,7 @@ class Payment {
     }
   }
 
-  pastPurchases() async {
+  _pastPurchases() async {
     final QueryPurchaseDetailsResponse response =
         await InAppPurchaseConnection.instance.queryPastPurchases();
     if (response.error != null) {

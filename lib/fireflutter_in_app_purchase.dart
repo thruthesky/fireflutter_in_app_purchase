@@ -3,7 +3,6 @@ library fireflutter_in_app_purchase;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:in_app_purchase/store_kit_wrappers.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -28,7 +27,7 @@ class Payment {
   InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
 
   init({@required Set<String> productIds}) {
-    print('Payment::init');
+    // print('Payment::init');
     this.productIds = productIds;
     _initIncomingPurchaseStream();
     _initPayment();
@@ -39,7 +38,6 @@ class Payment {
   /// propagate from either storefront so it's important to listen as soon as
   /// possible to avoid losing events.
   _initIncomingPurchaseStream() {
-    
     final Stream purchaseUpdates =
         InAppPurchaseConnection.instance.purchaseUpdatedStream;
 
@@ -127,7 +125,7 @@ class Payment {
     // }
 
     final bool available = await InAppPurchaseConnection.instance.isAvailable();
-    
+
     if (available) {
       // print('In app purchase is ready');
 
@@ -136,8 +134,8 @@ class Payment {
           .queryProductDetails(productIds);
       if (response.notFoundIDs.isNotEmpty) {
         // Handle the error.
-        print("Product IDs that are not found from store.");
-        print(response.notFoundIDs);
+        // print("Product IDs that are not found from store.");
+        // print(response.notFoundIDs);
       }
       products = response.productDetails;
       productStream.add(products);

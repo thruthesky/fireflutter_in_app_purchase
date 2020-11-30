@@ -109,7 +109,8 @@ class Payment {
   /// - Check if the product ids are available
   ///
   _initPayment() async {
-//https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
+
+    ///https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
     // if (Platform.isIOS) {
     //   final transactions = await SKPaymentQueueWrapper().transactions();
     //   for (final transaction in transactions) {

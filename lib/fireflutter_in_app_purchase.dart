@@ -24,6 +24,9 @@ class Payment {
   Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
 
+  /// TODO This event will be fired when there is incoming purchase.
+  PublishSubject purchase;
+
   InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
 
   init({@required Set<String> productIds}) {
@@ -134,11 +137,13 @@ class Payment {
           .queryProductDetails(productIds);
       if (response.notFoundIDs.isNotEmpty) {
         // Handle the error.
-        // print("Product IDs that are not found from store.");
-        // print(response.notFoundIDs);
+        print("Product IDs that are not found from store.");
+        print(response.notFoundIDs);
       }
       products = response.productDetails;
       productStream.add(products);
+      print('found products:');
+      print(products.map((e) => e.id).toList());
     } else {
       print('In app purchase is NOT ready');
       // Get.snackbar('Error', 'App cannot acceess to Store.');

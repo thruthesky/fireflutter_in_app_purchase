@@ -31,9 +31,12 @@ class FireflutterInAppPurchase {
   /// [begin] event will be fired when any of purchase begins the payemnt
   /// process. [failure] event will be fired when any of purchase fails.
   /// [success] event fires when the purchase succeed.
-  PublishSubject begin;
-  PublishSubject failure;
-  PublishSubject success;
+  // ignore: close_sinks
+  PublishSubject begin = PublishSubject();
+  // ignore: close_sinks
+  PublishSubject failure = PublishSubject();
+  // ignore: close_sinks
+  PublishSubject success = PublishSubject();
 
   InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
 

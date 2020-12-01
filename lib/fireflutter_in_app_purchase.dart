@@ -2,6 +2,7 @@ library fireflutter_in_app_purchase;
 
 import 'dart:io';
 
+import 'package:fireflutter/fireflutter.dart';
 import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -16,16 +17,23 @@ const String _kConsumableId = 'consumable';
 //   'subscription'
 // ];
 
-class Payment {
+class FireflutterInAppPurchase {
   /// Product items to sell to users.
   // RxList products = [].obs;
+
+  FireflutterInAppPurchase({@required FireFlutter inject}) : _ff = inject;
+  FireFlutter _ff;
 
   List products = [];
   Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
 
-  /// TODO This event will be fired when there is incoming purchase.
-  PublishSubject purchase;
+  /// [begin] event will be fired when any of purchase begins the payemnt
+  /// process. [failure] event will be fired when any of purchase fails.
+  /// [success] event fires when the purchase succeed.
+  PublishSubject begin;
+  PublishSubject failure;
+  PublishSubject success;
 
   InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
 
@@ -112,7 +120,6 @@ class Payment {
   /// - Check if the product ids are available
   ///
   _initPayment() async {
-
     ///https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
     // if (Platform.isIOS) {
     //   final transactions = await SKPaymentQueueWrapper().transactions();

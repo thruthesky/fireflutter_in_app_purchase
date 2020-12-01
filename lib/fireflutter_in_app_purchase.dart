@@ -28,15 +28,19 @@ class FireflutterInAppPurchase {
   Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
 
-  /// [begin] event will be fired when any of purchase begins the payemnt
-  /// process. [failure] event will be fired when any of purchase fails.
-  /// [success] event fires when the purchase succeed.
+  /// [pending] event will be fired on any of pending purchase which will
+  /// happends on the pending purchases from previous app session or new
+  /// incoming purchase.
+  /// [error] event will be fired when any of purchase fails(or errors). This
+  /// includes cancellation, verification failure, and other errors.
+  /// [verified] event will be fired when the purchase has verified and you can
+  /// deliver the purchase to user.
   // ignore: close_sinks
-  PublishSubject begin = PublishSubject();
+  PublishSubject pending = PublishSubject<PurchaseDetails>();
   // ignore: close_sinks
-  PublishSubject failure = PublishSubject();
+  PublishSubject error = PublishSubject<PurchaseDetails>();
   // ignore: close_sinks
-  PublishSubject success = PublishSubject();
+  PublishSubject verified = PublishSubject<PurchaseDetails>();
 
   InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
 
@@ -62,31 +66,17 @@ class FireflutterInAppPurchase {
     ///
     /// ! This is being called only on app start after closing. Hot-Reload or Full-Reload is not working.
     purchaseUpdates.listen((dynamic purchaseDetailsList) {
-      print('purchaseUpdates.listen((dynamic purchaseDetailsList) =>');
+      // print('purchaseUpdates.listen((dynamic purchaseDetailsList) =>');
       purchaseDetailsList.forEach(
         (PurchaseDetails purchaseDetails) async {
           if (purchaseDetails.status == PurchaseStatus.pending) {
             /// Pending purchase from previous app session and new incoming pending purchase will come here.
             // showPendingUI();
-            print('PurchaseStatus.pending: Show some pending UI');
-            print(purchaseDetails);
-            print(purchaseDetails.productID);
-            // try {
-            //   final re = await InAppPurchaseConnection.instance
-            //       .completePurchase(purchaseDetails);
-            //   print('purchase completed:');
-            //   print(re);
-            // } catch (e) {
-            //   print('Error on purchase: ');
-            //   print(e);
-            // }
+            pending.add(purchaseDetails);
           } else {
             if (purchaseDetails.status == PurchaseStatus.error) {
-              // handleError(purchaseDetails.error);
-              print("purchaseDetails.error: ${purchaseDetails.error}");
-              // Service.error(purchaseDetails.error);
+              error.add(purchaseDetails);
             } else if (purchaseDetails.status == PurchaseStatus.purchased) {
-              print('if (purchaseDetails.status == PurchaseStatus.purchased)');
               bool valid = await _verifyPurchase(purchaseDetails);
               if (valid) {
                 deliverProduct(purchaseDetails);
@@ -110,9 +100,9 @@ class FireflutterInAppPurchase {
         },
       );
     }, onDone: () {
-      print('done:');
+      print('onEone:');
     }, onError: (error) {
-      print('error on listening:');
+      print('onError: error on listening:');
       print(error);
     });
   }
@@ -166,6 +156,7 @@ class FireflutterInAppPurchase {
     // IMPORTANT!! Always verify a purchase before delivering the product.
     // For the purpose of an example, we directly return true.
     print("_verifyPurchase");
+    verified.add(purchaseDetails);
     return Future<bool>.value(true);
   }
 

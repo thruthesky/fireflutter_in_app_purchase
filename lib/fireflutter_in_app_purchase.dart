@@ -162,6 +162,7 @@ class FireflutterInAppPurchase {
   Future<bool> _verifyPurchase(PurchaseDetails purchaseDetails) {
     // IMPORTANT!! Always verify a purchase before delivering the product.
     // For the purpose of an example, we directly return true.
+    print("_verifyPurchase");
     return Future<bool>.value(true);
   }
 

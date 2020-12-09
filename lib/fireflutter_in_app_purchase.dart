@@ -8,9 +8,6 @@ import 'package:rxdart/rxdart.dart';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
 
-const bool _kAutoConsume = true;
-
-const String _kConsumableId = 'consumable';
 // const List<String> _kProductIds = <String>[
 //   _kConsumableId,
 //   'upgrade',
@@ -28,6 +25,10 @@ class FireflutterInAppPurchase {
   Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
 
+  bool autoConsume = true;
+
+  List consumableIds = [];
+
   /// [pending] event will be fired on any of pending purchase which will
   /// happends on the pending purchases from previous app session or new
   /// incoming purchase.
@@ -44,9 +45,10 @@ class FireflutterInAppPurchase {
 
   InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
 
-  init({@required Set<String> productIds}) {
+  init({@required Set<String> productIds, List<String> consumableIds}) {
     // print('Payment::init');
     this.productIds = productIds;
+    this.consumableIds = consumableIds;
     _initIncomingPurchaseStream();
     _initPayment();
     _pastPurchases();
@@ -85,9 +87,10 @@ class FireflutterInAppPurchase {
                 return;
               }
             }
+
             if (Platform.isAndroid) {
-              if (!_kAutoConsume &&
-                  purchaseDetails.productID == _kConsumableId) {
+              if (!autoConsume &&
+                  consumableIds.contains(purchaseDetails.productID)) {
                 await InAppPurchaseConnection.instance
                     .consumePurchase(purchaseDetails);
               }
@@ -168,7 +171,7 @@ class FireflutterInAppPurchase {
   /// todo connect to Functions and open boxes.
   void deliverProduct(PurchaseDetails purchaseDetails) async {
     // IMPORTANT!! Always verify a purchase purchase details before delivering the product.
-    if (purchaseDetails.productID == _kConsumableId) {
+    if (consumableIds.contains(purchaseDetails.productID)) {
       // await ConsumableStore .save(purchaseDetails.purchaseID);
       // List<String> consumables = await ConsumableStore.load();
       // setState(() {

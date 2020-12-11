@@ -19,6 +19,8 @@ const String statusPending = 'pending';
 const String statusSuccess = 'success';
 const String statusFailure = 'failure';
 
+const String MISSING_PRODUCTS = 'MISSING_PRODUCTS';
+
 class FireflutterInAppPurchase {
   /// Product items to sell to users.
   // RxList products = [].obs;
@@ -26,9 +28,18 @@ class FireflutterInAppPurchase {
   FireflutterInAppPurchase({@required FireFlutter inject}) : _ff = inject;
   FireFlutter _ff;
 
-  List products = [];
-  Set<String> productIds = {};
-  BehaviorSubject productStream = BehaviorSubject.seeded([]);
+  @Deprecated('use products map')
+  List _products = [];
+  Map<String, ProductDetails> products = {};
+  List<String> missingIds = [];
+
+  List get getProducts => _products;
+  Set<String> _productIds = {};
+
+  /// [productReady] is being fired after it got product list from the server.
+  ///
+  /// The app can display product after this event.
+  BehaviorSubject productReady = BehaviorSubject.seeded(null);
 
   /// It autoconsume the consumable product by default.
   /// If you set it to false, you must manually mark the product as consumed to enable another purchase (Android only).
@@ -40,14 +51,19 @@ class FireflutterInAppPurchase {
   /// [pending] event will be fired on any of pending purchase which will
   /// happends on the pending purchases from previous app session or new
   /// incoming purchase.
-  /// [error] event will be fired when any of purchase fails(or errors). This
-  /// includes cancellation, verification failure, and other errors.
-  /// [verified] event will be fired when the purchase has verified and you can
-  /// deliver the purchase to user.
+  /// Note that [pending] is `PublishSubject`. This means, the app must listen [pending] before invoking `init()`
   // ignore: close_sinks
   PublishSubject pending = PublishSubject<PurchaseDetails>();
+
+  /// [error] event will be fired when any of purchase fails(or errors). This
+  /// includes cancellation, verification failure, and other errors.
+  ///
+  /// Note that [error] is `PublishSubject`. This means, the app must listen [error] before invoking `init()`
   // ignore: close_sinks
   PublishSubject error = PublishSubject<PurchaseDetails>();
+
+  /// [verified] event will be fired when the purchase has verified and you can
+  /// deliver the purchase to user.
   // ignore: close_sinks
   PublishSubject verified = PublishSubject<PurchaseDetails>();
   // ignore: close_sinks
@@ -61,17 +77,16 @@ class FireflutterInAppPurchase {
     bool autoConsume = true,
   }) {
     // print('Payment::init');
-    this.productIds = productIds;
+    this._productIds = productIds;
     this.consumableIds = consumableIds;
     this.autoConsume = autoConsume;
     _initIncomingPurchaseStream();
     _initPayment();
-    // _pastPurchases();
   }
 
-  /// Subscribe to any incoming purchases at app initialization. These can
-  /// propagate from either storefront so it's important to listen as soon as
-  /// possible to avoid losing events.
+  /// Subscribe to any incoming(or pending) purchases
+  ///
+  /// It's important to listen as soon as possible to avoid losing events.
   _initIncomingPurchaseStream() {
     final Stream purchaseUpdates = connection.purchaseUpdatedStream;
 
@@ -84,9 +99,10 @@ class FireflutterInAppPurchase {
     /// Note, that this listener will be not unscribed since it should be
     /// lifetime listener
     ///
-    /// ! This is being called only on app start after closing. Hot-Reload or Full-Reload is not working.
+    /// Note, if there is a pending purchase, this is being called only
+    /// one time on app start after closing. Hot-Reload or Full-Reload is not working.
     purchaseUpdates.listen((dynamic purchaseDetailsList) {
-      print('purchaseUpdates.listen((dynamic purchaseDetailsList) =>');
+      // print('purchaseUpdates.listen((dynamic purchaseDetailsList) =>');
       purchaseDetailsList.forEach(
         (PurchaseDetails purchaseDetails) async {
           if (purchaseDetails.status == PurchaseStatus.pending) {
@@ -97,23 +113,15 @@ class FireflutterInAppPurchase {
             if (purchaseDetails.status == PurchaseStatus.error) {
               error.add(purchaseDetails);
             } else if (purchaseDetails.status == PurchaseStatus.purchased) {
-              bool valid = await _verifyPurchase(purchaseDetails);
-              if (valid) {
-                deliverProduct(purchaseDetails);
-              } else {
-                _handleInvalidPurchase(purchaseDetails);
-                return;
+              if (Platform.isAndroid) {
+                if (!autoConsume &&
+                    consumableIds.contains(purchaseDetails.productID)) {
+                  await connection.consumePurchase(purchaseDetails);
+                }
               }
-            }
-
-            if (Platform.isAndroid) {
-              if (!autoConsume &&
-                  consumableIds.contains(purchaseDetails.productID)) {
-                await connection.consumePurchase(purchaseDetails);
+              if (purchaseDetails.pendingCompletePurchase) {
+                await connection.completePurchase(purchaseDetails);
               }
-            }
-            if (purchaseDetails.pendingCompletePurchase) {
-              await connection.completePurchase(purchaseDetails);
             }
           }
         },
@@ -128,79 +136,31 @@ class FireflutterInAppPurchase {
 
   /// Init the in-app-purchase
   ///
-  /// - Check if in-app-purchase is availalbe
-  /// - Check if the product ids are available
-  ///
+  /// - Get products based on the [productIds]
   _initPayment() async {
-    /// For IOS Testing and need to clean the pending purchase.
-    /// https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
-    // if (Platform.isIOS) {
-    //   final transactions = await SKPaymentQueueWrapper().transactions();
-    //   for (final transaction in transactions) {
-    //     try {
-    //       if (transaction.transactionState !=
-    //           SKPaymentTransactionStateWrapper.purchasing) {
-    //         await SKPaymentQueueWrapper().finishTransaction(transaction);
-    //       }
-    //     } catch (e) {
-    //       print(e);
-    //     }
-    //   }
-    // }
-
     final bool available = await connection.isAvailable();
 
     if (available) {
-      // print('In app purchase is ready');
+      ProductDetailsResponse response =
+          await connection.queryProductDetails(_productIds);
 
-      final ProductDetailsResponse response =
-          await connection.queryProductDetails(productIds);
-
+      /// Check if any of given product id(s) are missing.
       if (response.notFoundIDs.isNotEmpty) {
-        // Handle the error.
-        print("Product IDs that are not found from store.");
-        print(response.notFoundIDs);
+        missingIds = response.notFoundIDs;
       }
-      products = response.productDetails;
-      productStream.add(products);
-      print('found products:');
-      print(products.map((e) => e.id).toList());
-    } else {
-      print('In app purchase is NOT ready');
-      // Get.snackbar('Error', 'App cannot acceess to Store.');
-    }
-  }
 
-  /// todo verify the purchase if that's real purchase or a fake.
-  Future<bool> _verifyPurchase(PurchaseDetails purchaseDetails) {
-    // IMPORTANT!! Always verify a purchase before delivering the product.
-    // For the purpose of an example, we directly return true.
-    print("_verifyPurchase");
-    verified.add(purchaseDetails);
-    return Future<bool>.value(true);
+      response.productDetails
+          .forEach((product) => products[product.id] = product);
+
+      productReady.add(products);
+    } else {
+      print('===> InAppPurchase connection is NOT avaible!');
+    }
   }
 
   /// todo if the purchase is invalid, alert it to users.
   void _handleInvalidPurchase(PurchaseDetails purchaseDetails) {
     // handle invalid purchase here if  _verifyPurchase` failed.
-  }
-
-  /// todo connect to Functions and open boxes.
-  void deliverProduct(PurchaseDetails purchaseDetails) async {
-    // IMPORTANT!! Always verify a purchase purchase details before delivering the product.
-    if (consumableIds.contains(purchaseDetails.productID)) {
-      // await ConsumableStore .save(purchaseDetails.purchaseID);
-      // List<String> consumables = await ConsumableStore.load();
-      // setState(() {
-      //   _purchasePending = false;
-      //   _consumables = consumables;
-      // });
-    } else {
-      // setState(() {
-      //   _purchases.add(purchaseDetails);
-      //   _purchasePending = false;
-      // });
-    }
   }
 
 //   _recordPending() async {

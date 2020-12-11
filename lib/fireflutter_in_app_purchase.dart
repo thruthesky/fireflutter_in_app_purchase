@@ -28,12 +28,9 @@ class FireflutterInAppPurchase {
   FireflutterInAppPurchase({@required FireFlutter inject}) : _ff = inject;
   FireFlutter _ff;
 
-  @Deprecated('use products map')
-  List _products = [];
   Map<String, ProductDetails> products = {};
   List<String> missingIds = [];
 
-  List get getProducts => _products;
   Set<String> _productIds = {};
 
   /// [productReady] is being fired after it got product list from the server.
@@ -62,12 +59,14 @@ class FireflutterInAppPurchase {
   // ignore: close_sinks
   PublishSubject error = PublishSubject<PurchaseDetails>();
 
-  /// [verified] event will be fired when the purchase has verified and you can
+  /// [success] event will be fired after the purchase has made and the the app can
   /// deliver the purchase to user.
+  ///
+  /// Not that the app can then, connect to backend server to verifiy if the
+  /// payment was really made and deliver products to user on the backend.
+  ///
   // ignore: close_sinks
-  PublishSubject verified = PublishSubject<PurchaseDetails>();
-  // ignore: close_sinks
-  PublishSubject pastPurchasesError = PublishSubject<PurchaseDetails>();
+  PublishSubject success = PublishSubject<PurchaseDetails>();
 
   InAppPurchaseConnection connection = InAppPurchaseConnection.instance;
 
@@ -121,6 +120,7 @@ class FireflutterInAppPurchase {
               }
               if (purchaseDetails.pendingCompletePurchase) {
                 await connection.completePurchase(purchaseDetails);
+                success.add(purchaseDetails);
               }
             }
           }
@@ -156,11 +156,6 @@ class FireflutterInAppPurchase {
     } else {
       print('===> InAppPurchase connection is NOT avaible!');
     }
-  }
-
-  /// todo if the purchase is invalid, alert it to users.
-  void _handleInvalidPurchase(PurchaseDetails purchaseDetails) {
-    // handle invalid purchase here if  _verifyPurchase` failed.
   }
 
 //   _recordPending() async {

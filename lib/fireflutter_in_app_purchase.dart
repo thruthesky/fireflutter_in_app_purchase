@@ -7,15 +7,17 @@ import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-const bool _kAutoConsume = true;
-
-const String _kConsumableId = 'consumable';
 // const List<String> _kProductIds = <String>[
 //   _kConsumableId,
 //   'upgrade',
 //   'subscription'
 // ];
+
+const String statusPending = 'pending';
+const String statusSuccess = 'success';
+const String statusFailure = 'failure';
 
 class FireflutterInAppPurchase {
   /// Product items to sell to users.
@@ -27,6 +29,13 @@ class FireflutterInAppPurchase {
   List products = [];
   Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
+
+  /// It autoconsume the consumable product by default.
+  /// If you set it to false, you must manually mark the product as consumed to enable another purchase (Android only).
+  bool autoConsume;
+
+  /// On `android` you need to specify which is consumable. By listing the product ids
+  List consumableIds = [];
 
   /// [pending] event will be fired on any of pending purchase which will
   /// happends on the pending purchases from previous app session or new
@@ -41,12 +50,20 @@ class FireflutterInAppPurchase {
   PublishSubject error = PublishSubject<PurchaseDetails>();
   // ignore: close_sinks
   PublishSubject verified = PublishSubject<PurchaseDetails>();
+  // ignore: close_sinks
+  PublishSubject pastPurchasesError = PublishSubject<PurchaseDetails>();
 
   InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
 
-  init({@required Set<String> productIds}) {
+  init({
+    @required Set<String> productIds,
+    List<String> consumableIds,
+    bool autoConsume = true,
+  }) {
     // print('Payment::init');
     this.productIds = productIds;
+    this.consumableIds = consumableIds;
+    this.autoConsume = autoConsume;
     _initIncomingPurchaseStream();
     _initPayment();
     // _pastPurchases();
@@ -85,9 +102,10 @@ class FireflutterInAppPurchase {
                 return;
               }
             }
+
             if (Platform.isAndroid) {
-              if (!_kAutoConsume &&
-                  purchaseDetails.productID == _kConsumableId) {
+              if (!autoConsume &&
+                  consumableIds.contains(purchaseDetails.productID)) {
                 await InAppPurchaseConnection.instance
                     .consumePurchase(purchaseDetails);
               }
@@ -100,7 +118,7 @@ class FireflutterInAppPurchase {
         },
       );
     }, onDone: () {
-      print('onEone:');
+      print('onDone:');
     }, onError: (error) {
       print('onError: error on listening:');
       print(error);
@@ -113,7 +131,8 @@ class FireflutterInAppPurchase {
   /// - Check if the product ids are available
   ///
   _initPayment() async {
-    ///https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
+    /// For IOS Testing and need to clean the pending purchase.
+    /// https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
     // if (Platform.isIOS) {
     //   final transactions = await SKPaymentQueueWrapper().transactions();
     //   for (final transaction in transactions) {
@@ -168,7 +187,7 @@ class FireflutterInAppPurchase {
   /// todo connect to Functions and open boxes.
   void deliverProduct(PurchaseDetails purchaseDetails) async {
     // IMPORTANT!! Always verify a purchase purchase details before delivering the product.
-    if (purchaseDetails.productID == _kConsumableId) {
+    if (consumableIds.contains(purchaseDetails.productID)) {
       // await ConsumableStore .save(purchaseDetails.purchaseID);
       // List<String> consumables = await ConsumableStore.load();
       // setState(() {
@@ -183,29 +202,22 @@ class FireflutterInAppPurchase {
     }
   }
 
-  /// TODO make past purchases work on non-consumable product
-  // _pastPurchases() async {
-  //   final QueryPurchaseDetailsResponse response =
-  //       await InAppPurchaseConnection.instance.queryPastPurchases();
-  //   if (response.error != null) {
-  //     // Handle the error.
-  //     print('error: response.error:');
-  //     print(response.error);
-  //   }
-  //   print('reponse:');
-  //   print(response.pastPurchases);
-  //   for (PurchaseDetails purchase in response.pastPurchases) {
-  //     print('previous purchase:');
-  //     print(purchase);
-  //     if (Platform.isIOS) {
-  //       // Mark that you've delivered the purchase. Only the App Store requires
-  //       // this final confirmation.
-  //       InAppPurchaseConnection.instance.completePurchase(purchase);
-  //     }
-  //   }
-  // }
+//   _recordPending() async {
+//     _ff.db.collection('purchase').add({
+//       'status': statusPending,
+//       'uid': _ff.user.uid,
+//       'displayName': _ff.user.displayName,
+//       'email': _ff.user.email,
+//       'phoneNumber': _ff.user.phoneNumber,
+//       'photoURL': _ff.user.photoURL,
+//       'productId': '',
+//     });
+//   }
+//   _recordFailure() async {
+//     _ff.db.collection('purchase').doc('...purchaseId...').update({ 'status': statusFailure, 'endAt': FieldValue.serverTimestamp() });
+//   }
+//   _recordSuccess() async {
+// _ff.db.collection('purchase').doc('...purchaseId...').update({ 'status': statusSuccess, 'endAt': FieldValue.serverTimestamp() });
+//   }
 
-  verify(PurchaseDetails purchaseDetails) {
-    ///
-  }
 }

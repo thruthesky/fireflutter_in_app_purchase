@@ -53,7 +53,7 @@ class FireflutterInAppPurchase {
   // ignore: close_sinks
   PublishSubject pastPurchasesError = PublishSubject<PurchaseDetails>();
 
-  InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
+  InAppPurchaseConnection connection = InAppPurchaseConnection.instance;
 
   init({
     @required Set<String> productIds,
@@ -73,8 +73,7 @@ class FireflutterInAppPurchase {
   /// propagate from either storefront so it's important to listen as soon as
   /// possible to avoid losing events.
   _initIncomingPurchaseStream() {
-    final Stream purchaseUpdates =
-        InAppPurchaseConnection.instance.purchaseUpdatedStream;
+    final Stream purchaseUpdates = connection.purchaseUpdatedStream;
 
     /// Listen to any incoming purchases AND any pending purchase from previous app session.
     /// * For instance, app crashed right after purchase and the purchase has not yet delivered,
@@ -155,6 +154,7 @@ class FireflutterInAppPurchase {
       final ProductDetailsResponse response = await InAppPurchaseConnection
           .instance
           .queryProductDetails(productIds);
+
       if (response.notFoundIDs.isNotEmpty) {
         // Handle the error.
         print("Product IDs that are not found from store.");

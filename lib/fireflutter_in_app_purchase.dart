@@ -45,9 +45,10 @@ class FireflutterInAppPurchase {
   /// On `android` you need to specify which is consumable. By listing the product ids
   List consumableIds = [];
 
-  /// [pending] event will be fired on any of pending purchase which will
-  /// happends on the pending purchases from previous app session or new
-  /// incoming purchase.
+  /// [pending] event will be fired on incoming purchases or previous purchase of previous app session.
+  ///
+  /// The app can show a UI to display the payment is on going.
+  ///
   /// Note that [pending] is `PublishSubject`. This means, the app must listen [pending] before invoking `init()`
   // ignore: close_sinks
   PublishSubject pending = PublishSubject<PurchaseDetails>();
@@ -70,6 +71,8 @@ class FireflutterInAppPurchase {
 
   InAppPurchaseConnection connection = InAppPurchaseConnection.instance;
 
+  String _pendingPurchaseDocumentId;
+
   init({
     @required Set<String> productIds,
     List<String> consumableIds,
@@ -87,8 +90,6 @@ class FireflutterInAppPurchase {
   ///
   /// It's important to listen as soon as possible to avoid losing events.
   _initIncomingPurchaseStream() {
-    final Stream purchaseUpdates = connection.purchaseUpdatedStream;
-
     /// Listen to any pending & incoming purchases.
     ///
     /// If app crashed right after purchase but the purchase has not yet
@@ -98,20 +99,28 @@ class FireflutterInAppPurchase {
     /// Note, that this listener will be not unscribed since it should be
     /// lifetime listener
     ///
-    /// Note, if there is a pending purchase, this is being called only
-    /// one time on app start after closing. Hot-Reload or Full-Reload is not working.
-    purchaseUpdates.listen((dynamic purchaseDetailsList) {
-      // print('purchaseUpdates.listen((dynamic purchaseDetailsList) =>');
+    /// Note, for the previous app session pending purchase, listener event will be called
+    /// one time only on app start after closing. Hot-Reload or Full-Reload is not working.
+    connection.purchaseUpdatedStream.listen((dynamic purchaseDetailsList) {
       purchaseDetailsList.forEach(
         (PurchaseDetails purchaseDetails) async {
+          // All purchase event(pending, success, or cancelling) comes here.
+
+          // if it's pending, this mean, the user just started to pay.
+          // previous app session pending purchase is not `PurchaseStatus.pending`. It is either
+          // `PurchaseStatus.purchased` or `PurchaseStatus.error`
           if (purchaseDetails.status == PurchaseStatus.pending) {
-            /// Pending purchase from previous app session and new incoming pending purchase will come here.
-            // showPendingUI();
             pending.add(purchaseDetails);
+            _recordPending(purchaseDetails);
           } else {
             if (purchaseDetails.status == PurchaseStatus.error) {
               error.add(purchaseDetails);
+              if (Platform.isIOS) {
+                connection.completePurchase(purchaseDetails);
+              }
+              _recordFailure(purchaseDetails);
             } else if (purchaseDetails.status == PurchaseStatus.purchased) {
+              // for android & consumable product only.
               if (Platform.isAndroid) {
                 if (!autoConsume &&
                     consumableIds.contains(purchaseDetails.productID)) {
@@ -120,6 +129,7 @@ class FireflutterInAppPurchase {
               }
               if (purchaseDetails.pendingCompletePurchase) {
                 await connection.completePurchase(purchaseDetails);
+                _recordSuccess(purchaseDetails);
                 success.add(purchaseDetails);
               }
             }
@@ -158,22 +168,89 @@ class FireflutterInAppPurchase {
     }
   }
 
-//   _recordPending() async {
-//     _ff.db.collection('purchase').add({
-//       'status': statusPending,
-//       'uid': _ff.user.uid,
-//       'displayName': _ff.user.displayName,
-//       'email': _ff.user.email,
-//       'phoneNumber': _ff.user.phoneNumber,
-//       'photoURL': _ff.user.photoURL,
-//       'productId': '',
-//     });
-//   }
-//   _recordFailure() async {
-//     _ff.db.collection('purchase').doc('...purchaseId...').update({ 'status': statusFailure, 'endAt': FieldValue.serverTimestamp() });
-//   }
-//   _recordSuccess() async {
-// _ff.db.collection('purchase').doc('...purchaseId...').update({ 'status': statusSuccess, 'endAt': FieldValue.serverTimestamp() });
-//   }
+  _recordPending(PurchaseDetails purchaseDetails) async {
+    ProductDetails productDetails = products[purchaseDetails.productID];
+    DocumentReference doc = await _ff.db.collection('purchase').add({
+      'status': statusPending,
+      'uid': _ff.user.uid,
+      'displayName': _ff.user.displayName,
+      'email': _ff.user.email,
+      'phoneNumber': _ff.user.phoneNumber,
+      'photoURL': _ff.user.photoURL,
+      'productDetails': {
+        'id': productDetails.id,
+        'title': productDetails.title,
+        'description': productDetails.description,
+        'price': productDetails.price,
+        'hashCode': productDetails.hashCode,
+      },
+      'purchaseDetails': {
+        'productID': purchaseDetails.productID,
+        'pendingCompletePurchase': purchaseDetails.pendingCompletePurchase,
+        'verificationData.localVerificationData':
+            purchaseDetails.verificationData.localVerificationData,
+        'verificationData.serverVerificationData':
+            purchaseDetails.verificationData.serverVerificationData,
+        'hashCode': purchaseDetails.hashCode,
+      },
+      'endAt': FieldValue.serverTimestamp(),
+    });
+    _pendingPurchaseDocumentId = doc.id;
+  }
 
+  _recordFailure(PurchaseDetails purchaseDetails) async {
+    _ff.db.collection('purchase').doc(_pendingPurchaseDocumentId).update({
+      'status': statusFailure,
+      'endAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  _recordSuccess(PurchaseDetails purchaseDetails) async {
+    ProductDetails productDetails = products[purchaseDetails.productID];
+    _ff.db.collection('purchase').doc(_pendingPurchaseDocumentId).update({
+      'status': statusSuccess,
+      'purchaseDetails.transactionDate': purchaseDetails.transactionDate,
+      'purchaseDetails.purchaseID': purchaseDetails.purchaseID,
+      'purchaseDetails.skPaymentTransaction.payment.applicationUsername':
+          purchaseDetails.skPaymentTransaction.payment.applicationUsername,
+      'purchaseDetails.skPaymentTransaction.payment.productIdentifier':
+          purchaseDetails.skPaymentTransaction.payment.productIdentifier,
+      'purchaseDetails.skPaymentTransaction.payment.quantity':
+          purchaseDetails.skPaymentTransaction.payment.quantity,
+      'purchaseDetails.skPaymentTransaction.payment.hashCode':
+          purchaseDetails.skPaymentTransaction.payment.hashCode,
+      'purchaseDetails.skPaymentTransaction.transactionIdentifier':
+          purchaseDetails.skPaymentTransaction.transactionIdentifier,
+      'purchaseDetails.verificationData.localVerificationData.success':
+          purchaseDetails.verificationData.localVerificationData,
+      'purchaseDetails.verificationData.serverVerificationData.success':
+          purchaseDetails.verificationData.serverVerificationData,
+
+      'purchaseDetails.pendingCompletePurchase':
+          purchaseDetails.pendingCompletePurchase,
+
+      'productDetails.skProduct.price': productDetails.skProduct.price,
+      'productDetails.skProduct.priceLocale.currencyCode':
+          productDetails.skProduct.priceLocale.currencyCode,
+      'productDetails.skProduct.productIdentifier':
+          productDetails.skProduct.productIdentifier,
+      // 'skuDetail.sku': productDetails.skuDetail.sku,
+      // 'skuDetail.price': productDetails.skuDetail.price,
+      // 'skuDetail.priceCurrencyCode': productDetails.skuDetail.priceCurrencyCode,
+      // 'skuDetail.originalPrice': productDetails.skuDetail.originalPrice,
+      // 'skuDetail.type': productDetails.skuDetail.type,
+      'endAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future buyConsumable(ProductDetails product) async {
+    PurchaseParam purchaseParam = PurchaseParam(
+      productDetails: product,
+      applicationUserName: _ff.user.uid,
+    );
+
+    await connection.buyConsumable(
+      purchaseParam: purchaseParam,
+    );
+  }
 }

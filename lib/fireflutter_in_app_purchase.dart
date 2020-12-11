@@ -75,14 +75,18 @@ class FireflutterInAppPurchase {
   _initIncomingPurchaseStream() {
     final Stream purchaseUpdates = connection.purchaseUpdatedStream;
 
-    /// Listen to any incoming purchases AND any pending purchase from previous app session.
-    /// * For instance, app crashed right after purchase and the purchase has not yet delivered,
-    /// * Then, the purchase will be notified here with `PurchaseStatus.pending`. This is confirmed on iOS.
-    /// No need to unscribe since it is lifetime listener
+    /// Listen to any pending & incoming purchases.
+    ///
+    /// If app crashed right after purchase but the purchase has not yet
+    /// delivered, then, the purchase will be notified here with
+    /// `PurchaseStatus.pending`. This is confirmed on iOS.
+    ///
+    /// Note, that this listener will be not unscribed since it should be
+    /// lifetime listener
     ///
     /// ! This is being called only on app start after closing. Hot-Reload or Full-Reload is not working.
     purchaseUpdates.listen((dynamic purchaseDetailsList) {
-      // print('purchaseUpdates.listen((dynamic purchaseDetailsList) =>');
+      print('purchaseUpdates.listen((dynamic purchaseDetailsList) =>');
       purchaseDetailsList.forEach(
         (PurchaseDetails purchaseDetails) async {
           if (purchaseDetails.status == PurchaseStatus.pending) {
@@ -105,13 +109,11 @@ class FireflutterInAppPurchase {
             if (Platform.isAndroid) {
               if (!autoConsume &&
                   consumableIds.contains(purchaseDetails.productID)) {
-                await InAppPurchaseConnection.instance
-                    .consumePurchase(purchaseDetails);
+                await connection.consumePurchase(purchaseDetails);
               }
             }
             if (purchaseDetails.pendingCompletePurchase) {
-              await InAppPurchaseConnection.instance
-                  .completePurchase(purchaseDetails);
+              await connection.completePurchase(purchaseDetails);
             }
           }
         },
@@ -146,14 +148,13 @@ class FireflutterInAppPurchase {
     //   }
     // }
 
-    final bool available = await InAppPurchaseConnection.instance.isAvailable();
+    final bool available = await connection.isAvailable();
 
     if (available) {
       // print('In app purchase is ready');
 
-      final ProductDetailsResponse response = await InAppPurchaseConnection
-          .instance
-          .queryProductDetails(productIds);
+      final ProductDetailsResponse response =
+          await connection.queryProductDetails(productIds);
 
       if (response.notFoundIDs.isNotEmpty) {
         // Handle the error.

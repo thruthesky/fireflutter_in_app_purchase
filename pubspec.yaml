@@ -16,8 +16,6 @@ dependencies:
     path: ../fireflutter
   in_app_purchase: ^0.3.4+16
 
-
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

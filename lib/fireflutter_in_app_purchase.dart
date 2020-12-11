@@ -49,7 +49,7 @@ class FireflutterInAppPurchase {
     this.productIds = productIds;
     _initIncomingPurchaseStream();
     _initPayment();
-    _pastPurchases();
+    // _pastPurchases();
   }
 
   /// Subscribe to any incoming purchases at app initialization. These can
@@ -183,24 +183,29 @@ class FireflutterInAppPurchase {
     }
   }
 
-  _pastPurchases() async {
-    final QueryPurchaseDetailsResponse response =
-        await InAppPurchaseConnection.instance.queryPastPurchases();
-    if (response.error != null) {
-      // Handle the error.
-      print('error: response.error:');
-      print(response.error);
-    }
-    print('reponse:');
-    print(response.pastPurchases);
-    for (PurchaseDetails purchase in response.pastPurchases) {
-      print('previous purchase:');
-      print(purchase);
-      if (Platform.isIOS) {
-        // Mark that you've delivered the purchase. Only the App Store requires
-        // this final confirmation.
-        InAppPurchaseConnection.instance.completePurchase(purchase);
-      }
-    }
+  /// TODO make past purchases work on non-consumable product
+  // _pastPurchases() async {
+  //   final QueryPurchaseDetailsResponse response =
+  //       await InAppPurchaseConnection.instance.queryPastPurchases();
+  //   if (response.error != null) {
+  //     // Handle the error.
+  //     print('error: response.error:');
+  //     print(response.error);
+  //   }
+  //   print('reponse:');
+  //   print(response.pastPurchases);
+  //   for (PurchaseDetails purchase in response.pastPurchases) {
+  //     print('previous purchase:');
+  //     print(purchase);
+  //     if (Platform.isIOS) {
+  //       // Mark that you've delivered the purchase. Only the App Store requires
+  //       // this final confirmation.
+  //       InAppPurchaseConnection.instance.completePurchase(purchase);
+  //     }
+  //   }
+  // }
+
+  verify(PurchaseDetails purchaseDetails) {
+    ///
   }
 }

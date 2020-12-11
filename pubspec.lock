@@ -189,7 +189,7 @@ packages:
       path: "../fireflutter"
       relative: true
     source: path
-    version: "0.0.35"
+    version: "0.0.36"
   flutter:
     dependency: "direct main"
     description: flutter

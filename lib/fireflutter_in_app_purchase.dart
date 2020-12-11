@@ -25,8 +25,11 @@ class FireflutterInAppPurchase {
   Set<String> productIds = {};
   BehaviorSubject productStream = BehaviorSubject.seeded([]);
 
-  bool autoConsume = true;
+  /// It autoconsume the consumable product by default.
+  /// If you set it to false, you must manually mark the product as consumed to enable another purchase (Android only).
+  bool autoConsume;
 
+  /// On `android` you need to specify which is consumable. By listing the product ids
   List consumableIds = [];
 
   /// [pending] event will be fired on any of pending purchase which will
@@ -42,13 +45,20 @@ class FireflutterInAppPurchase {
   PublishSubject error = PublishSubject<PurchaseDetails>();
   // ignore: close_sinks
   PublishSubject verified = PublishSubject<PurchaseDetails>();
+  // ignore: close_sinks
+  PublishSubject pastPurchasesError = PublishSubject<PurchaseDetails>();
 
   InAppPurchaseConnection instance = InAppPurchaseConnection.instance;
 
-  init({@required Set<String> productIds, List<String> consumableIds}) {
+  init({
+    @required Set<String> productIds,
+    List<String> consumableIds,
+    bool autoConsume = true,
+  }) {
     // print('Payment::init');
     this.productIds = productIds;
     this.consumableIds = consumableIds;
+    this.autoConsume = autoConsume;
     _initIncomingPurchaseStream();
     _initPayment();
     _pastPurchases();
@@ -103,7 +113,7 @@ class FireflutterInAppPurchase {
         },
       );
     }, onDone: () {
-      print('onEone:');
+      print('onDone:');
     }, onError: (error) {
       print('onError: error on listening:');
       print(error);
@@ -116,7 +126,8 @@ class FireflutterInAppPurchase {
   /// - Check if the product ids are available
   ///
   _initPayment() async {
-    ///https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
+    /// For IOS Testing and need to clean the pending purchase.
+    /// https://github.com/flutter/flutter/issues/53534#issuecomment-674069878
     // if (Platform.isIOS) {
     //   final transactions = await SKPaymentQueueWrapper().transactions();
     //   for (final transaction in transactions) {
@@ -193,12 +204,15 @@ class FireflutterInAppPurchase {
       // Handle the error.
       print('error: response.error:');
       print(response.error);
+      pastPurchasesError.add(response.error);
     }
     print('reponse:');
     print(response.pastPurchases);
     for (PurchaseDetails purchase in response.pastPurchases) {
       print('previous purchase:');
       print(purchase);
+
+      // InAppPurchaseConnection.instance.consumePurchase(purchase);   // clear purchase that wasnot comsume yet
       if (Platform.isIOS) {
         // Mark that you've delivered the purchase. Only the App Store requires
         // this final confirmation.

@@ -2,7 +2,7 @@ library fireflutter_in_app_purchase;
 
 import 'dart:io';
 
-import 'package:fireflutter/fireflutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -151,9 +151,9 @@ class FireflutterInAppPurchase {
   /// Product items to sell to users.
   // RxList products = [].obs;
 
-  FireflutterInAppPurchase({@required FireFlutter inject}) : _ff = inject;
-  FireFlutter _ff;
-  CollectionReference get purchaseCol => _ff.db.collection('purchase');
+  get db => FirebaseFirestore.instance;
+  get user => FirebaseAuth.instance.currentUser;
+  CollectionReference get purchaseCol => db.collection('purchase');
 
   Map<String, ProductDetails> products = {};
   List<String> missingIds = [];
@@ -204,6 +204,8 @@ class FireflutterInAppPurchase {
 
   /// Initialize payment
   ///
+  /// Attention, [init] should be called after Firebase initialization since
+  /// it may access database for pending purchase from previous app session.
   init({
     @required Set<String> productIds,
     List<String> consumableIds,
@@ -304,14 +306,14 @@ class FireflutterInAppPurchase {
 
   _recordPending(PurchaseDetails purchaseDetails) async {
     ProductDetails productDetails = products[purchaseDetails.productID];
-    await _ff.db.collection('purchase').add({
+    await db.collection('purchase').add({
       'applicationUserName': applicationUserName,
       'status': SessionStatus.pending,
-      'uid': _ff.user.uid,
-      'displayName': _ff.user.displayName,
-      'email': _ff.user.email,
-      'phoneNumber': _ff.user.phoneNumber,
-      'photoURL': _ff.user.photoURL,
+      'uid': user.uid,
+      'displayName': user.displayName,
+      'email': user.email,
+      'phoneNumber': user.phoneNumber,
+      'photoURL': user.photoURL,
       'productDetails': {
         'id': productDetails.id,
         'title': productDetails.title,
@@ -344,7 +346,7 @@ class FireflutterInAppPurchase {
 
   Future<PurchaseSession> getPurchaseSessionBySessionId(String id) async {
     QuerySnapshot querySnapshot = await purchaseCol
-        .where('uid', isEqualTo: _ff.user.uid)
+        .where('uid', isEqualTo: user.uid)
         .where('applicationUserName', isEqualTo: id)
         .get();
     if (querySnapshot.size == 0) {
@@ -373,7 +375,7 @@ class FireflutterInAppPurchase {
       PurchaseDetails purchaseDetails) async {
     ProductDetails productDetails = products[purchaseDetails.productID];
     final session = await getPurchaseSession(purchaseDetails);
-    await _ff.db.collection('purchase').doc(session.id).update({
+    await db.collection('purchase').doc(session.id).update({
       'status': SessionStatus.success,
       'purchaseDetails.transactionDate': purchaseDetails.transactionDate,
       'purchaseDetails.purchaseID': purchaseDetails.purchaseID,
@@ -432,7 +434,7 @@ class FireflutterInAppPurchase {
   String _applicationUserName;
   String get _generateApplicationUserName {
     _applicationUserName =
-        _ff.user.uid + '-' + DateTime.now().millisecondsSinceEpoch.toString();
+        user.uid + '-' + DateTime.now().millisecondsSinceEpoch.toString();
     return _applicationUserName;
   }
 
@@ -450,9 +452,9 @@ class FireflutterInAppPurchase {
 
   /// Returns the Collection Query to get the login user's success purchases.
   Future get getMyPurchases async {
-    return _ff.db
+    return db
         .collection('purchase')
-        .where('uid', isEqualTo: _ff.user.uid)
+        .where('uid', isEqualTo: user.uid)
         .where('status', isEqualTo: 'success')
         .orderBy('beginAt')
         .get();

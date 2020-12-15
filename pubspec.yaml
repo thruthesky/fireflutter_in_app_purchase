@@ -1,8 +1,7 @@
 name: fireflutter_in_app_purchase
 description: FireFlutter in-app-purchase package. This package is a submodule of fireflutter.
 version: 0.0.2
-author:
-homepage:
+homepage: https://github.com/thruthesky/fireflutter_in_app_purchase
 
 environment:
   sdk: ">=2.7.0 <3.0.0"

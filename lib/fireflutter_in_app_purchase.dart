@@ -206,17 +206,17 @@ class FireflutterInAppPurchase {
   ///
   /// Attention, [init] should be called after Firebase initialization since
   /// it may access database for pending purchase from previous app session.
-  init({
+  Future init({
     @required Set<String> productIds,
     List<String> consumableIds,
     bool autoConsume = true,
-  }) {
+  }) async {
     // print('Payment::init');
     this._productIds = productIds;
     this.consumableIds = consumableIds;
     this.autoConsume = autoConsume;
     _initIncomingPurchaseStream();
-    _initPayment();
+    await _initPayment();
   }
 
   /// Subscribe to any incoming(or pending) purchases

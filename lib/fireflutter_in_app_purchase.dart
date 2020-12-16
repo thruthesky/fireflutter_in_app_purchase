@@ -376,7 +376,8 @@ class FireflutterInAppPurchase {
     ProductDetails productDetails = products[purchaseDetails.productID];
     final session = await getPurchaseSession(purchaseDetails);
     if (session.status != 'pending') {
-      print('-------> Critical error. status must be pending');
+      print(
+          '-------> Critical error. status must be pending. ${purchaseDetails.skPaymentTransaction.payment.applicationUsername}');
     }
     await db.collection('purchase').doc(session.id).update({
       'status': SessionStatus.success,

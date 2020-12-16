@@ -375,6 +375,9 @@ class FireflutterInAppPurchase {
       PurchaseDetails purchaseDetails) async {
     ProductDetails productDetails = products[purchaseDetails.productID];
     final session = await getPurchaseSession(purchaseDetails);
+    if (session.status != 'pending') {
+      print('-------> Critical error. status must be pending');
+    }
     await db.collection('purchase').doc(session.id).update({
       'status': SessionStatus.success,
       'purchaseDetails.transactionDate': purchaseDetails.transactionDate,
@@ -435,10 +438,13 @@ class FireflutterInAppPurchase {
   String get _generateApplicationUserName {
     _applicationUserName =
         user.uid + '-' + DateTime.now().millisecondsSinceEpoch.toString();
+    print('_applicationUserName: $_applicationUserName');
     return _applicationUserName;
   }
 
   String get applicationUserName => _applicationUserName;
+
+  /// When user buy, create an unique session id.
   Future buyConsumable(ProductDetails product) async {
     PurchaseParam purchaseParam = PurchaseParam(
       productDetails: product,

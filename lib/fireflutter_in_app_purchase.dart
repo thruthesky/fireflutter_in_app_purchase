@@ -332,7 +332,7 @@ class FireflutterInAppPurchase {
           },
         },
       },
-      'beginAt': FieldValue.serverTimestamp(),
+      'at': FieldValue.serverTimestamp(),
     });
   }
 
@@ -373,7 +373,7 @@ class FireflutterInAppPurchase {
       'purchaseDetails.productID': purchaseDetails.productID,
       'purchaseDetails.skPaymentTransaction.transactionIdentifier':
           purchaseDetails.skPaymentTransaction.transactionIdentifier,
-      'endAt': FieldValue.serverTimestamp(),
+      'at': FieldValue.serverTimestamp(),
     });
   }
 

@@ -395,37 +395,49 @@ class FireflutterInAppPurchase {
       'phoneNumber': user.phoneNumber,
       'photoURL': user.photoURL,
       // ..
-      'purchaseDetails.transactionDate': purchaseDetails.transactionDate,
-      'purchaseDetails.purchaseID': purchaseDetails.purchaseID,
-      'purchaseDetails.skPaymentTransaction.payment.applicationUsername':
-          purchaseDetails.skPaymentTransaction.payment.applicationUsername,
-      'purchaseDetails.skPaymentTransaction.payment.productIdentifier':
-          purchaseDetails.skPaymentTransaction.payment.productIdentifier,
-      'purchaseDetails.skPaymentTransaction.payment.quantity':
-          purchaseDetails.skPaymentTransaction.payment.quantity,
-      'purchaseDetails.skPaymentTransaction.transactionIdentifier':
-          purchaseDetails.skPaymentTransaction.transactionIdentifier,
-      'purchaseDetails.skPaymentTransaction.transactionTimeStamp':
-          purchaseDetails.skPaymentTransaction.transactionTimeStamp,
-      'purchaseDetails.verificationData.localVerificationData.success':
-          purchaseDetails.verificationData.localVerificationData,
-      'purchaseDetails.verificationData.serverVerificationData.success':
-          purchaseDetails.verificationData.serverVerificationData,
-
-      'purchaseDetails.pendingCompletePurchase':
-          purchaseDetails.pendingCompletePurchase,
-
-      'productDetails.price': productDetails.price,
-      'productDetails.skProduct.price': productDetails.skProduct.price,
-
-      'productDetails.skProduct.priceLocale.currencyCode':
-          productDetails.skProduct.priceLocale.currencyCode,
-
-      'productDetails.skProduct.priceLocale.currencySymbol':
-          productDetails.skProduct.priceLocale.currencySymbol,
-
-      'productDetails.skProduct.productIdentifier':
-          productDetails.skProduct.productIdentifier,
+      'productDetails': {
+        'id': productDetails.id,
+        'title': productDetails.title,
+        'description': productDetails.description,
+        'price': productDetails.price,
+      },
+      // ..
+      'purchaseDetails': {
+        'pendingCompletePurchase': purchaseDetails.pendingCompletePurchase,
+        'transactionDate': purchaseDetails.transactionDate,
+        'productID': purchaseDetails.productID,
+        'purchaseID': purchaseDetails.purchaseID,
+        'skPaymentTransaction': {
+          'payment': {
+            'applicationUsername': purchaseDetails
+                .skPaymentTransaction.payment.applicationUsername,
+            'productIdentifier':
+                purchaseDetails.skPaymentTransaction.payment.productIdentifier,
+            'quantity': purchaseDetails.skPaymentTransaction.payment.quantity,
+          },
+          'transactionIdentifier':
+              purchaseDetails.skPaymentTransaction.transactionIdentifier,
+          'transactionTimeStamp':
+              purchaseDetails.skPaymentTransaction.transactionTimeStamp,
+        },
+        'verificationData': {
+          'localVerificationData':
+              purchaseDetails.verificationData.localVerificationData,
+          'serverVerificationData':
+              purchaseDetails.verificationData.serverVerificationData,
+        },
+        'pendingCompletePurchase': purchaseDetails.pendingCompletePurchase,
+        'price': productDetails.price,
+        'skProduct': {
+          'price': productDetails.skProduct.price,
+          'priceLocale': {
+            'currencyCode': productDetails.skProduct.priceLocale.currencyCode,
+            'currencySymbol':
+                productDetails.skProduct.priceLocale.currencySymbol,
+          },
+          'productIdentifier': productDetails.skProduct.productIdentifier,
+        },
+      },
       // 'skuDetail.sku': productDetails.skuDetail.sku,
       // 'skuDetail.price': productDetails.skuDetail.price,
       // 'skuDetail.priceCurrencyCode': productDetails.skuDetail.priceCurrencyCode,

@@ -15,12 +15,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 //   'subscription'
 // ];
 
-class SessionStatus {
-  static final String pending = 'pending';
-  static final String success = 'success';
-  static final String failure = 'failure';
-}
-
 const String MISSING_PRODUCTS = 'MISSING_PRODUCTS';
 const String PURCHASE_SESSION_NOT_FOUND = 'PURCHASE_SESSION_NOT_FOUND';
 
@@ -154,6 +148,12 @@ class FireflutterInAppPurchase {
   get db => FirebaseFirestore.instance;
   get user => FirebaseAuth.instance.currentUser;
   CollectionReference get purchaseCol => db.collection('purchase');
+  CollectionReference get pendingCol =>
+      purchaseCol.doc('history').collection('pending');
+  CollectionReference get errorCol =>
+      purchaseCol.doc('history').collection('error');
+  CollectionReference get successCol =>
+      purchaseCol.doc('history').collection('success');
 
   Map<String, ProductDetails> products = {};
   List<String> missingIds = [];
@@ -256,7 +256,8 @@ class FireflutterInAppPurchase {
               connection.completePurchase(purchaseDetails);
             }
           } else if (purchaseDetails.status == PurchaseStatus.purchased) {
-            print('=> purchased on purchaseUpdatedStream');
+            print(
+                '=> purchased on purchaseUpdatedStream: PurchaseStatus.purchased');
             // for android & consumable product only.
             if (Platform.isAndroid) {
               if (!autoConsume &&
@@ -306,9 +307,8 @@ class FireflutterInAppPurchase {
 
   _recordPending(PurchaseDetails purchaseDetails) async {
     ProductDetails productDetails = products[purchaseDetails.productID];
-    await db.collection('purchase').add({
+    await pendingCol.add({
       'applicationUserName': applicationUserName,
-      'status': SessionStatus.pending,
       'uid': user.uid,
       'displayName': user.displayName,
       'email': user.email,
@@ -334,9 +334,9 @@ class FireflutterInAppPurchase {
       },
       'beginAt': FieldValue.serverTimestamp(),
     });
-    // _pendingPurchaseDocumentId = doc.id;
   }
 
+  @Deprecated('Do not use purchase session')
   Future<PurchaseSession> getPurchaseSession(
       PurchaseDetails purchaseDetails) async {
     String id =
@@ -344,6 +344,7 @@ class FireflutterInAppPurchase {
     return getPurchaseSessionBySessionId(id);
   }
 
+  @Deprecated('Do not use purchase session')
   Future<PurchaseSession> getPurchaseSessionBySessionId(String id) async {
     QuerySnapshot querySnapshot = await purchaseCol
         .where('uid', isEqualTo: user.uid)
@@ -360,10 +361,15 @@ class FireflutterInAppPurchase {
   _recordFailure(PurchaseDetails purchaseDetails) async {
     print(purchaseDetails);
 
-    final session = await getPurchaseSession(purchaseDetails);
+    // final session = await getPurchaseSession(purchaseDetails);
 
-    purchaseCol.doc(session.id).update({
-      'status': SessionStatus.failure,
+    errorCol.add({
+      'applicationUserName': applicationUserName,
+      'uid': user.uid,
+      'displayName': user.displayName,
+      'email': user.email,
+      'phoneNumber': user.phoneNumber,
+      'photoURL': user.photoURL,
       'purchaseDetails.productID': purchaseDetails.productID,
       'purchaseDetails.skPaymentTransaction.transactionIdentifier':
           purchaseDetails.skPaymentTransaction.transactionIdentifier,
@@ -374,13 +380,21 @@ class FireflutterInAppPurchase {
   Future<PurchaseSession> _recordSuccess(
       PurchaseDetails purchaseDetails) async {
     ProductDetails productDetails = products[purchaseDetails.productID];
-    final session = await getPurchaseSession(purchaseDetails);
-    if (session.status != 'pending') {
-      print(
-          '-------> Critical error. status must be pending. ${purchaseDetails.skPaymentTransaction.payment.applicationUsername}');
-    }
-    await db.collection('purchase').doc(session.id).update({
-      'status': SessionStatus.success,
+    // final session = await getPurchaseSession(purchaseDetails);
+    // if (session.status != 'pending') {
+    //   print(
+    //       '-------> Critical error. status must be pending. ${purchaseDetails.skPaymentTransaction.payment.applicationUsername}');
+    // }
+
+    /// TODO add complete purchase information.
+    DocumentReference doc = await successCol.add({
+      'applicationUserName': applicationUserName,
+      'uid': user.uid,
+      'displayName': user.displayName,
+      'email': user.email,
+      'phoneNumber': user.phoneNumber,
+      'photoURL': user.photoURL,
+      // ..
       'purchaseDetails.transactionDate': purchaseDetails.transactionDate,
       'purchaseDetails.purchaseID': purchaseDetails.purchaseID,
       'purchaseDetails.skPaymentTransaction.payment.applicationUsername':
@@ -417,9 +431,12 @@ class FireflutterInAppPurchase {
       // 'skuDetail.priceCurrencyCode': productDetails.skuDetail.priceCurrencyCode,
       // 'skuDetail.originalPrice': productDetails.skuDetail.originalPrice,
       // 'skuDetail.type': productDetails.skuDetail.type,
-      'endAt': FieldValue.serverTimestamp(),
+      'at': FieldValue.serverTimestamp(),
     });
-    return session;
+    // return session;
+
+    final snapshot = await doc.get();
+    return PurchaseSession.fromSnapshot(snapshot);
   }
 
   /// Unique purchase session id
@@ -459,11 +476,6 @@ class FireflutterInAppPurchase {
 
   /// Returns the Collection Query to get the login user's success purchases.
   Future get getMyPurchases async {
-    return db
-        .collection('purchase')
-        .where('uid', isEqualTo: user.uid)
-        .where('status', isEqualTo: 'success')
-        .orderBy('beginAt')
-        .get();
+    return successCol.where('uid', isEqualTo: user.uid).orderBy('at').get();
   }
 }

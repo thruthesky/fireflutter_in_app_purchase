@@ -358,6 +358,13 @@ class FireflutterInAppPurchase {
     return session;
   }
 
+  /// Returns a success session
+  Future<PurchaseSession> getPurchaseSuccessSession(String id) async {
+    final snapshot = await successCol.doc(id).get();
+    final session = PurchaseSession.fromSnapshot(snapshot);
+    return session;
+  }
+
   _recordFailure(PurchaseDetails purchaseDetails) async {
     print(purchaseDetails);
 

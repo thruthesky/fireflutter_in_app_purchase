@@ -433,7 +433,7 @@ class FireflutterInAppPurchase {
           'serverVerificationData':
               purchaseDetails.verificationData.serverVerificationData,
         },
-        'pendingCompletePurchase': purchaseDetails.pendingCompletePurchase,
+        // 'pendingCompletePurchase': purchaseDetails.pendingCompletePurchase,
         'price': productDetails.price,
         'skProduct': {
           'price': productDetails.skProduct.price,
